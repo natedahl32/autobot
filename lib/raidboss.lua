@@ -436,11 +436,9 @@ function M.new(module_id, boss_name, opts)
           moduleTable.start(ctx)
         else
           self.start()
-          if sayFn then
-            local summary = self.role_summary and self.role_summary() or nil
-            if summary then
-              sayFn('Role loaded: ' .. summary)
-            end
+          local summary = self.role_summary and self.role_summary() or nil
+          if sayFn and summary then
+            sayFn('Role loaded: ' .. summary)
           end
         end
       end,
@@ -450,11 +448,9 @@ function M.new(module_id, boss_name, opts)
           moduleTable.stop(ctx)
         else
           self.stop()
-          if sayFn then
-            local summary = self.role_summary and self.role_summary() or nil
-            if summary then
-              sayFn('Module stopped. Role=' .. summary)
-            end
+          local summary = self.role_summary and self.role_summary() or nil
+          if sayFn and summary then
+            sayFn('Module stopped. Role=' .. summary)
           end
         end
       end,
@@ -480,6 +476,208 @@ function M.new(module_id, boss_name, opts)
         end
       end,
     }
+  end
+
+  function self.standard_role_commands(sayFn)
+    return {
+      mtset = function(ctx, args)
+        local name = BossRoles.set_mt(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('MT set to ' .. tostring(name)) end
+      end,
+
+      bmtset = function(ctx, args)
+        local name = BossRoles.set_bmt(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('BMT set to ' .. tostring(name)) end
+      end,
+
+      maset = function(ctx, args)
+        local name = BossRoles.set_ma(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('MA set to ' .. tostring(name)) end
+      end,
+
+      mtclear = function(ctx, args)
+        BossRoles.clear_mt(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('MT cleared') end
+      end,
+
+      bmtclear = function(ctx, args)
+        BossRoles.clear_bmt(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('BMT cleared') end
+      end,
+
+      maclear = function(ctx, args)
+        BossRoles.clear_ma(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('MA cleared') end
+      end,
+
+      rtadd = function(ctx, args)
+        local name = BossRoles.add_rampage_tank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Rampage tank added ' .. tostring(name)) end
+      end,
+
+      rtdel = function(ctx, args)
+        local name = BossRoles.remove_rampage_tank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Rampage tank removed ' .. tostring(name)) end
+      end,
+
+      rtclear = function(ctx, args)
+        BossRoles.clear_rampage_tanks(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('All rampage tanks cleared') end
+      end,
+
+      rtstatus = function(ctx, args)
+        local r = BossRoles.get_rampage_tanks(self.module_id)
+        if sayFn then
+          sayFn('RT: ' .. (#r > 0 and table.concat(r, ', ') or 'none'))
+        end
+      end,
+
+      otadd = function(ctx, args)
+        local name = BossRoles.add_offtank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank added ' .. tostring(name)) end
+      end,
+
+      otdel = function(ctx, args)
+        local name = BossRoles.remove_offtank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank removed ' .. tostring(name)) end
+      end,
+
+      otclear = function(ctx, args)
+        BossRoles.clear_offtanks(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('All offtanks cleared') end
+      end,
+
+      otstatus = function(ctx, args)
+        local names = BossRoles.get_offtank_names(self.module_id)
+        local mine = BossRoles.get_offtank_mobs(self.module_id, me())
+        if sayFn then
+          sayFn(
+            'OTs=' .. (#names > 0 and table.concat(names, ', ') or 'none') ..
+            ' my_mobs=' .. (#mine > 0 and table.concat(mine, ', ') or 'default/any')
+          )
+        end
+      end,
+
+      otsetmobs = function(ctx, args)
+        local spec = table.concat(args or {}, ' ')
+        if spec == '' then
+          if sayFn then sayFn('Usage: otsetmobs <mob1|mob2|...>') end
+          return
+        end
+
+        local mobs = BossRoles.set_offtank_mobs(self.module_id, nil, spec)
+        self.reload_roles()
+        if sayFn then
+          sayFn('Offtank mob filters set: ' .. (#mobs > 0 and table.concat(mobs, ', ') or 'none'))
+        end
+      end,
+
+      otclearmobs = function(ctx, args)
+        BossRoles.clear_offtank_mobs(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank mob filters cleared') end
+      end,
+
+      tankstatus = function(ctx, args)
+        local ots = BossRoles.get_offtank_names(self.module_id)
+        if sayFn then
+          sayFn(
+            'MT=' .. tostring(BossRoles.get_mt(self.module_id)) ..
+            ' BMT=' .. tostring(BossRoles.get_bmt(self.module_id)) ..
+            ' MA=' .. tostring(BossRoles.get_ma(self.module_id)) ..
+            ' OTs=' .. (#ots > 0 and table.concat(ots, ', ') or 'none')
+          )
+        end
+      end,
+
+      mastatus = function(ctx, args)
+        local ma = BossRoles.get_ma(self.module_id)
+        local mine = BossRoles.is_ma(self.module_id, me())
+        if sayFn then
+          sayFn(
+            'MA=' .. tostring(ma) ..
+            ' me=' .. tostring(me()) ..
+            ' is_ma=' .. tostring(mine)
+          )
+        end
+      end,
+    }
+  end
+
+  function self.standard_help(opts)
+    opts = opts or {}
+
+    local lines = {}
+
+    if opts.title and opts.title ~= '' then
+      table.insert(lines, opts.title)
+      table.insert(lines, '')
+    end
+
+    table.insert(lines, 'Commands:')
+    table.insert(lines, ('  /autobot %s start'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s stop'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s startfight'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s stopfight'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s status'):format(self.module_id))
+
+    table.insert(lines, ('  /autobot %s mtset'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s bmtset'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s maset'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s mtclear'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s bmtclear'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s maclear'):format(self.module_id))
+
+    table.insert(lines, ('  /autobot %s rtadd'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s rtdel'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s rtclear'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s rtstatus'):format(self.module_id))
+
+    if opts.include_ot then
+      table.insert(lines, ('  /autobot %s otadd'):format(self.module_id))
+      table.insert(lines, ('  /autobot %s otdel'):format(self.module_id))
+      table.insert(lines, ('  /autobot %s otclear'):format(self.module_id))
+      table.insert(lines, ('  /autobot %s otstatus'):format(self.module_id))
+      table.insert(lines, ('  /autobot %s otsetmobs <mob1|mob2|...>'):format(self.module_id))
+      table.insert(lines, ('  /autobot %s otclearmobs'):format(self.module_id))
+    end
+
+    table.insert(lines, ('  /autobot %s tankstatus'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s mastatus'):format(self.module_id))
+
+    if opts.extra and #opts.extra > 0 then
+      table.insert(lines, '')
+      for _, line in ipairs(opts.extra) do
+        table.insert(lines, line)
+      end
+    end
+
+    return lines
+  end
+
+  function self.merge_commands(...)
+    local out = {}
+    for i = 1, select('#', ...) do
+      local t = select(i, ...)
+      if t then
+        for k, v in pairs(t) do
+          out[k] = v
+        end
+      end
+    end
+    return out
   end
 
   return self

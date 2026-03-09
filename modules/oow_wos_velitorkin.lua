@@ -7,27 +7,10 @@ local M = {}
 
 M.id = "oow_wos_velitorkin"
 
-M.help = {
-  'Omens of War - Wall of Slaughter - Velitorkin',
-  '',
-  'Commands:',
-  '  /autobot oow_wos_velitorkin start',
-  '  /autobot oow_wos_velitorkin stop',
-  '  /autobot oow_wos_velitorkin startfight',
-  '  /autobot oow_wos_velitorkin stopfight',
-  '  /autobot oow_wos_velitorkin mtset',
-  '  /autobot oow_wos_velitorkin bmtset',
-  '  /autobot oow_wos_velitorkin maset',
-  '  /autobot oow_wos_velitorkin mtclear',
-  '  /autobot oow_wos_velitorkin bmtclear',
-  '  /autobot oow_wos_velitorkin maclear',
-  '  /autobot oow_wos_velitorkin rtadd',
-  '  /autobot oow_wos_velitorkin rtdel',
-  '  /autobot oow_wos_velitorkin rtclear',
-  '  /autobot oow_wos_velitorkin tankstatus',
-  '  /autobot oow_wos_velitorkin rtstatus',
-  '  /autobot oow_wos_velitorkin mastatus',
-}
+M.help = boss.standard_help({
+  title = 'Omens of War - Wall of Slaughter - Velitorkin',
+  include_ot = false,
+})
 
 local boss = RaidBoss.new(M.id, "Velitorkin")
 
