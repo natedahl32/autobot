@@ -76,27 +76,35 @@ local function serialize_value(v, indent)
   end
 end
 
+-- forward declaration
+local serialize_lua_table
+
 local function serialize_lua_value(v, indent)
   indent = indent or ''
 
   if type(v) == 'string' then
     return string.format('%q', v)
+
   elseif type(v) == 'number' or type(v) == 'boolean' then
     return tostring(v)
+
   elseif type(v) == 'table' then
     return serialize_lua_table(v, indent)
+
   else
     return string.format('%q', tostring(v))
   end
 end
 
-function serialize_lua_table(t, indent)
+serialize_lua_table = function(t, indent)
   indent = indent or ''
+
   local lines = { '{' }
   local nextIndent = indent .. '  '
 
   for k, v in pairs(t) do
     local key
+
     if type(k) == 'string' and k:match('^[%a_][%w_]*$') then
       key = k
     else
@@ -105,14 +113,11 @@ function serialize_lua_table(t, indent)
 
     local val = serialize_lua_value(v, nextIndent)
 
-    if type(v) == 'table' then
-      table.insert(lines, string.format('%s%s = %s,', nextIndent, key, val))
-    else
-      table.insert(lines, string.format('%s%s = %s,', nextIndent, key, val))
-    end
+    table.insert(lines, string.format('%s%s = %s,', nextIndent, key, val))
   end
 
   table.insert(lines, indent .. '}')
+
   return table.concat(lines, '\n')
 end
 
