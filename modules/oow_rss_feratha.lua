@@ -47,12 +47,6 @@ local FEAR_BUFF_NAMES = {
 local boss = RaidBoss.new(M.id, "Feratha", {
   attack_distance = 18,
   nav_timeout_ms = 30000,
-
-  -- Default OT behavior for this encounter: only grab ferans
-  default_offtank_names = {
-    "a ferocious feran",
-  },
-
   mez_buff_names = MEZ_BUFF_NAMES,
   fear_buff_names = FEAR_BUFF_NAMES,
 })
