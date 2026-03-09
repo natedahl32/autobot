@@ -12,6 +12,9 @@ local M = {}
 
 local ensured_dirs = {}
 
+-- forward declaration
+local serialize_lua_table
+
 local function normalize_path(path)
   return (path or ''):gsub('/', '\\')
 end
@@ -75,9 +78,6 @@ local function serialize_value(v, indent)
     return string.format('%q', tostring(v))
   end
 end
-
--- forward declaration
-local serialize_lua_table
 
 local function serialize_lua_value(v, indent)
   indent = indent or ''
