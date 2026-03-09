@@ -6,6 +6,8 @@ local M = {}
 
 M.id = "oow_rss_feratha"
 
+local boss = RaidBoss.new(M.id, "Feratha")
+
 M.help = boss.standard_help({
   title = 'Omens of War - Riftseekers Sanctum - Feratha',
   include_ot = true,
