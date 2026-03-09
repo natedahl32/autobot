@@ -475,6 +475,16 @@ function M.new(module_id, boss_name, opts)
           sayFn('Role=' .. tostring(summary) .. ' fight_started=' .. tostring(self.fight_started))
         end
       end,
+
+      reloadroles = function(ctx, args)
+        self.reload_roles()
+        if sayFn then
+          local summary = self.role_summary and self.role_summary() or nil
+          if summary then
+            sayFn('Roles reloaded. Role=' .. summary)
+          end
+        end
+      end,
     }
   end
 
@@ -656,7 +666,8 @@ function M.new(module_id, boss_name, opts)
 
     table.insert(lines, ('  /autobot %s tankstatus'):format(self.module_id))
     table.insert(lines, ('  /autobot %s mastatus'):format(self.module_id))
-
+    table.insert(lines, ('  /autobot %s reloadroles'):format(self.module_id))
+    
     if opts.extra and #opts.extra > 0 then
       table.insert(lines, '')
       for _, line in ipairs(opts.extra) do

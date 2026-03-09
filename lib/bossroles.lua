@@ -278,10 +278,6 @@ function M.add_offtank(moduleId, name, mobs)
 
   save(moduleId)
 
-  if who == me_name() then
-    DanNet.join_group(roles.offtank_group)
-  end
-
   return who
 end
 
@@ -295,10 +291,6 @@ function M.remove_offtank(moduleId, name)
 
   save(moduleId)
 
-  if who == me_name() then
-    DanNet.leave_group(roles.offtank_group)
-  end
-
   return who
 end
 
@@ -309,10 +301,6 @@ function M.clear_offtanks(moduleId)
 
   roles.offtanks = {}
   save(moduleId)
-
-  if was_offtank then
-    DanNet.leave_group(roles.offtank_group)
-  end
 end
 
 function M.set_offtank_mobs(moduleId, name, mobs)
