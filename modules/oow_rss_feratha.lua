@@ -35,7 +35,6 @@ M.help = {
   '  /autobot oow_rss_feratha mastatus',
 }
 
--- Add CC buff names you actually see on your server/raid here.
 local MEZ_BUFF_NAMES = {
   ["Anxiety Attack"] = true, -- example placeholder if used as mez elsewhere; replace as needed
 }
@@ -62,7 +61,6 @@ end
 
 function M.start(ctx)
   boss.start()
-
   local summary = boss.role_summary()
   if summary then
     say("Role loaded: " .. summary)
@@ -71,7 +69,6 @@ end
 
 function M.stop(ctx)
   boss.stop()
-
   local summary = boss.role_summary()
   if summary then
     say("Module stopped. Role=" .. summary)
@@ -82,91 +79,81 @@ function M.tick(ctx)
   boss.tick()
 end
 
-M.commands = {}
+M.commands = boss.standard_commands(M, say)
 
-M.commands.startfight = function()
-  boss.start_fight()
-  say("Fight started.")
-end
-
-M.commands.stopfight = function()
-  boss.stop_fight()
-  say("Fight stopped.")
-end
-
-M.commands.mtset = function()
+M.commands.mtset = function(ctx, args)
   local name = BossRoles.set_mt(M.id)
   boss.reload_roles()
   say("MT set to " .. tostring(name))
 end
 
-M.commands.bmtset = function()
+M.commands.bmtset = function(ctx, args)
   local name = BossRoles.set_bmt(M.id)
   boss.reload_roles()
   say("BMT set to " .. tostring(name))
 end
 
-M.commands.maset = function()
+M.commands.maset = function(ctx, args)
   local name = BossRoles.set_ma(M.id)
   boss.reload_roles()
   say("MA set to " .. tostring(name))
 end
 
-M.commands.mtclear = function()
+M.commands.mtclear = function(ctx, args)
   BossRoles.clear_mt(M.id)
   boss.reload_roles()
   say("MT cleared")
 end
 
-M.commands.bmtclear = function()
+M.commands.bmtclear = function(ctx, args)
   BossRoles.clear_bmt(M.id)
   boss.reload_roles()
   say("BMT cleared")
 end
 
-M.commands.maclear = function()
+M.commands.maclear = function(ctx, args)
   BossRoles.clear_ma(M.id)
   boss.reload_roles()
   say("MA cleared")
 end
 
-M.commands.rtadd = function()
+M.commands.rtadd = function(ctx, args)
   local name = BossRoles.add_rampage_tank(M.id)
   boss.reload_roles()
   say("Rampage tank added " .. tostring(name))
 end
 
-M.commands.rtdel = function()
+M.commands.rtdel = function(ctx, args)
   local name = BossRoles.remove_rampage_tank(M.id)
   boss.reload_roles()
   say("Rampage tank removed " .. tostring(name))
 end
 
-M.commands.rtclear = function()
+M.commands.rtclear = function(ctx, args)
   BossRoles.clear_rampage_tanks(M.id)
   boss.reload_roles()
   say("All rampage tanks cleared")
 end
 
-M.commands.otadd = function()
+M.commands.otadd = function(ctx, args)
   local name = BossRoles.add_offtank(M.id)
   boss.reload_roles()
   say("Offtank added " .. tostring(name))
 end
 
-M.commands.otdel = function()
+M.commands.otdel = function(ctx, args)
   local name = BossRoles.remove_offtank(M.id)
   boss.reload_roles()
   say("Offtank removed " .. tostring(name))
 end
 
-M.commands.otclear = function()
+M.commands.otclear = function(ctx, args)
   BossRoles.clear_offtanks(M.id)
   boss.reload_roles()
   say("All offtanks cleared")
 end
 
-M.commands.otstatus = function()
+M.commands.otstatus = function(ctx, args)
   local names = BossRoles.get_offtank_names(M.id)
   local mine = BossRoles.get_offtank_mobs(M.id, me_name())
 
@@ -188,18 +175,18 @@ M.commands.otsetmobs = function(ctx, args)
   say("Offtank mob filters set: " .. (#mobs > 0 and table.concat(mobs, ", ") or "none"))
 end
 
-M.commands.otclearmobs = function()
+M.commands.otclearmobs = function(ctx, args)
   BossRoles.clear_offtank_mobs(M.id)
   boss.reload_roles()
   say("Offtank mob filters cleared")
 end
 
-M.commands.rtstatus = function()
+M.commands.rtstatus = function(ctx, args)
   local r = BossRoles.get_rampage_tanks(M.id)
   say("RT: " .. (#r > 0 and table.concat(r, ", ") or "none"))
 end
 
-M.commands.tankstatus = function()
+M.commands.tankstatus = function(ctx, args)
   local ots = BossRoles.get_offtank_names(M.id)
   say(
     "MT=" .. tostring(BossRoles.get_mt(M.id)) ..
@@ -209,7 +196,7 @@ M.commands.tankstatus = function()
   )
 end
 
-M.commands.mastatus = function()
+M.commands.mastatus = function(ctx, args)
   local ma = BossRoles.get_ma(M.id)
   local mine = BossRoles.is_ma(M.id, me_name())
   say(

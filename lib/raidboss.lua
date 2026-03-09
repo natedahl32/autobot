@@ -429,6 +429,59 @@ function M.new(module_id, boss_name, opts)
     end
   end
 
+  function self.standard_commands(moduleTable, sayFn)
+    return {
+      start = function(ctx, args)
+        if moduleTable and moduleTable.start then
+          moduleTable.start(ctx)
+        else
+          self.start()
+          if sayFn then
+            local summary = self.role_summary and self.role_summary() or nil
+            if summary then
+              sayFn('Role loaded: ' .. summary)
+            end
+          end
+        end
+      end,
+
+      stop = function(ctx, args)
+        if moduleTable and moduleTable.stop then
+          moduleTable.stop(ctx)
+        else
+          self.stop()
+          if sayFn then
+            local summary = self.role_summary and self.role_summary() or nil
+            if summary then
+              sayFn('Module stopped. Role=' .. summary)
+            end
+          end
+        end
+      end,
+
+      startfight = function(ctx, args)
+        self.start_fight()
+        if sayFn then
+          sayFn('Fight started.')
+        end
+      end,
+
+      stopfight = function(ctx, args)
+        self.stop_fight()
+        if sayFn then
+          sayFn('Fight stopped.')
+        end
+      end,
+
+      status = function(ctx, args)
+        if sayFn then
+          local summary = self.role_summary and self.role_summary() or 'none'
+          sayFn('Role=' .. tostring(summary) .. ' fight_started=' .. tostring(self.fight_started))
+        end
+      end,
+    }
+  end
+
   return self
 end
 
