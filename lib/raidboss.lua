@@ -2,6 +2,7 @@ local mq = require('mq')
 
 local BossRoles = require('AutoBot.lib.bossroles')
 local BossCombat = require('AutoBot.lib.bosscombat')
+local CTWN = require('AutoBot.lib.cwtn')
 local Spawn = require('AutoBot.lib.spawn')
 
 local M = {}
@@ -191,6 +192,14 @@ function M.new(module_id, boss_name, opts)
   function self.start_fight()
     self.fight_started = true
     self.fight_start_time = now()
+
+    -- Check roles and turn on correct CWTN modes
+    if BossRoles.is_ma(self.module_id, me()) then
+        CTWN.vorpal_on()
+    elseif self.is_ot() or self.is_mt() or self.is_bmt() then
+        CTWN.sic_tank_on()
+    end
+
     self.reset_opener()
   end
 
@@ -667,7 +676,7 @@ function M.new(module_id, boss_name, opts)
     table.insert(lines, ('  /autobot %s tankstatus'):format(self.module_id))
     table.insert(lines, ('  /autobot %s mastatus'):format(self.module_id))
     table.insert(lines, ('  /autobot %s reloadroles'):format(self.module_id))
-    
+
     if opts.extra and #opts.extra > 0 then
       table.insert(lines, '')
       for _, line in ipairs(opts.extra) do

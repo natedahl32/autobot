@@ -41,6 +41,18 @@ function M.manual_off()
   mq.delay(200)
 end
 
+function M.vorpal_on()
+  local short = class_short_lower(); if not short then return end
+  mq.cmdf('/%s mode 3 nosave', short)
+  mq.delay(200)
+end
+
+function M.sic_tank_on()
+  local short = class_short_lower(); if not short then return end
+  mq.cmdf('/%s mode 7 nosave', short)
+  mq.delay(200)
+end
+
 function M.with_manual_mode(fn)
   M.manual_on()
   local ok, err = pcall(fn)
