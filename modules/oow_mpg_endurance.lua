@@ -4,7 +4,7 @@ local RaidBoss = require('AutoBot.lib.raidboss')
 
 local M = {}
 
-M.id = "oow_rss_queen_pyrilonis"
+M.id = "oow_mpg_endurance"
 
 -- Replace these with the real mez/fear buff names you use on this encounter.
 local MEZ_BUFF_NAMES = {
@@ -15,13 +15,14 @@ local FEAR_BUFF_NAMES = {
   -- ["Your Fear Spell Name"] = true,
 }
 
-local boss = RaidBoss.new(M.id, "Queen Pyrilonis", {
+local boss = RaidBoss.new(M.id, "Ansdaicher", {
   opener_mode = 'offtank_first',
-  ma_target_source = 'spawns',
+  ma_target_source = 'xtarget',
   ma_priority = {
-    'a fire construct',
-    'a raging chimera',
-    { 'princess', 'Princess' },
+    -- Fill these in with the exact add names you want MA to kill.
+    -- Example pattern only:
+    -- 'a muramite xxx',
+    -- 'a muramite yyy',
   },
   offtank_ordered_pull = true,
   mez_buff_names = MEZ_BUFF_NAMES,
@@ -29,19 +30,21 @@ local boss = RaidBoss.new(M.id, "Queen Pyrilonis", {
 })
 
 M.help = boss.standard_help({
-  title = 'Omens of War - Riftseekers Sanctum - Queen Pyrilonis',
+  title = 'Omens of War - MPG Raid Trial - The Mastery of Endurance',
   include_ot = true,
   extra = {
     'Notes:',
-    '  Main Assist priority: a fire construct > a raging chimera > any Princess mob.',
-    '  Offtanks should be assigned specific Princess mobs with otsetmobs.',
-    '  Fight starts with offtanks pulling princesses first.',
-    '  Use /autobot oow_rss_queen_pyrilonis startbossphase when it is time to begin boss phase.',
+    '  Assign Drolador and Bricklayor as Offtanks for Ansdaicher and Zellucheraz.',
+    '  Assign other tanks as Offtanks for specific add names using otsetmobs.',
+    '  Do not include Ansdaicher or Zellucheraz in MA priority.',
+    '  MA will only target mobs listed in ma_priority.',
+    '  Fight starts with offtanks picking up their assigned targets first.',
+    '  Do not use startbossphase unless you intentionally want boss-phase tank logic.',
   },
 })
 
 local function say(msg)
-  mq.cmdf('/dga /echo [QueenPyrilonis:%s] %s', mq.TLO.Me.Name() or 'Me', msg)
+  mq.cmdf('/dga /echo [Endurance:%s] %s', mq.TLO.Me.Name() or 'Me', msg)
 end
 
 function M.start(ctx)

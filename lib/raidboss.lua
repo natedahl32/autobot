@@ -532,11 +532,13 @@ function M.new(module_id, boss_name, opts)
   function self.main_assist_live()
     local target = self.find_ma_target()
     if not target or not target() then
+      mq.cmd('/attack off')
       return
     end
 
     local id = target.ID()
     if not id or id <= 0 then
+      mq.cmd('/attack off')
       return
     end
 
