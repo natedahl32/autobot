@@ -20,37 +20,41 @@ end
 function M.byos_on()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s BYOS on nosave', short)
-  mq.delay(200)
 end
 
 function M.byos_off()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s BYOS off nosave', short)
-  mq.delay(200)
 end
 
 function M.manual_on()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s mode 0 nosave', short)
-  mq.delay(200)
 end
 
 function M.manual_off()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s mode 2 nosave', short)
-  mq.delay(200)
 end
 
 function M.vorpal_on()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s mode 3 nosave', short)
-  mq.delay(200)
 end
 
 function M.sic_tank_on()
   local short = class_short_lower(); if not short then return end
   mq.cmdf('/%s mode 7 nosave', short)
-  mq.delay(200)
+end
+
+function M.pause_on()
+  local short = class_short_lower(); if not short then return end
+  mq.cmdf('/%s pause on', short)
+end
+
+function M.pause_off()
+  local short = class_short_lower(); if not short then return end
+  mq.cmdf('/%s pause off', short)
 end
 
 function M.with_manual_mode(fn)

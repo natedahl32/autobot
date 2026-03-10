@@ -1,7 +1,6 @@
 -- AutoBot/lib/bossroles.lua
 local mq = require('mq')
 local Config = require('AutoBot.lib.config')
-local DanNet = require('AutoBot.lib.dannet')
 
 local M = {}
 
@@ -13,11 +12,23 @@ local M = {}
 --   offtanks = {
 --     ["Name"] = { mobs = {"mob a", "mob b"} }
 --   },
---   offtank_group = 'raid_offtanks',
 -- }
 local cache = {}
 
-local DEFAULT_OFFTANK_GROUP = 'raid_offtanks'
+local function load_latest_roles(moduleId)
+  local loaded = Config.load(moduleId .. '_roles', defaults())
+  loaded.main_tank = loaded.main_tank or nil
+  loaded.backup_tank = loaded.backup_tank or nil
+  loaded.main_assist = loaded.main_assist or nil
+  loaded.rampage_tanks = loaded.rampage_tanks or {}
+  loaded.offtanks = loaded.offtanks or {}
+  return loaded
+end
+
+local function save_latest(moduleId, roles)
+  Config.save(moduleId .. '_roles', roles)
+  cache[moduleId] = roles
+end
 
 local function me_name()
   local n = mq.TLO.Me.Name()
@@ -54,7 +65,6 @@ local function defaults()
     main_assist = nil,
     rampage_tanks = {},
     offtanks = {},
-    offtank_group = DEFAULT_OFFTANK_GROUP,
   }
 end
 
@@ -65,7 +75,6 @@ local function clone_roles(src)
     main_assist = src.main_assist,
     rampage_tanks = clone_array(src.rampage_tanks),
     offtanks = clone_offtanks(src.offtanks),
-    offtank_group = src.offtank_group or DEFAULT_OFFTANK_GROUP,
   }
 end
 
@@ -74,15 +83,7 @@ local function ensure_loaded(moduleId)
     return cache[moduleId]
   end
 
-  local loaded = Config.load(moduleId .. '_roles', defaults())
-  loaded.main_tank = loaded.main_tank or nil
-  loaded.backup_tank = loaded.backup_tank or nil
-  loaded.main_assist = loaded.main_assist or nil
-  loaded.rampage_tanks = loaded.rampage_tanks or {}
-  loaded.offtanks = loaded.offtanks or {}
-  loaded.offtank_group = loaded.offtank_group or DEFAULT_OFFTANK_GROUP
-
-  cache[moduleId] = loaded
+  cache[moduleId] = load_latest_roles(moduleId)
   return cache[moduleId]
 end
 
@@ -158,12 +159,12 @@ function M.get_rampage_tanks(moduleId)
 end
 
 function M.get_offtank_group(moduleId)
-  return ensure_loaded(moduleId).offtank_group or DEFAULT_OFFTANK_GROUP
+  return ensure_loaded(moduleId).offtank_group
 end
 
 function M.set_offtank_group(moduleId, groupName)
   local roles = ensure_loaded(moduleId)
-  roles.offtank_group = (groupName and groupName ~= '') and groupName or DEFAULT_OFFTANK_GROUP
+  roles.offtank_group = (groupName and groupName ~= '') and groupName
   save(moduleId)
   return roles.offtank_group
 end
@@ -192,46 +193,46 @@ function M.get_offtank_mobs(moduleId, name)
 end
 
 function M.set_mt(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.main_tank = name or me_name()
-  save(moduleId)
+  save_latest(moduleId)
   return roles.main_tank
 end
 
 function M.set_bmt(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.backup_tank = name or me_name()
-  save(moduleId)
+  save_latest(moduleId)
   return roles.backup_tank
 end
 
 function M.set_ma(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.main_assist = name or me_name()
-  save(moduleId)
+  save_latest(moduleId)
   return roles.main_assist
 end
 
 function M.clear_mt(moduleId)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.main_tank = nil
-  save(moduleId)
+  save_latest(moduleId)
 end
 
 function M.clear_bmt(moduleId)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.backup_tank = nil
-  save(moduleId)
+  save_latest(moduleId)
 end
 
 function M.clear_ma(moduleId)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.main_assist = nil
-  save(moduleId)
+  save_latest(moduleId)
 end
 
 function M.add_rampage_tank(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
 
   for _, n in ipairs(roles.rampage_tanks) do
@@ -241,12 +242,12 @@ function M.add_rampage_tank(moduleId, name)
   end
 
   table.insert(roles.rampage_tanks, who)
-  save(moduleId)
+  save_latest(moduleId)
   return who
 end
 
 function M.remove_rampage_tank(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
   local out = {}
 
@@ -257,18 +258,18 @@ function M.remove_rampage_tank(moduleId, name)
   end
 
   roles.rampage_tanks = out
-  save(moduleId)
+  save_latest(moduleId)
   return who
 end
 
 function M.clear_rampage_tanks(moduleId)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   roles.rampage_tanks = {}
-  save(moduleId)
+  save_latest(moduleId)
 end
 
 function M.add_offtank(moduleId, name, mobs)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
   local entry = ensure_offtank_entry(roles, who)
 
@@ -276,51 +277,49 @@ function M.add_offtank(moduleId, name, mobs)
     entry.mobs = normalize_mob_list(mobs)
   end
 
-  save(moduleId)
-
+  save_latest(moduleId)
   return who
 end
 
 function M.remove_offtank(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
 
   if roles.offtanks then
     roles.offtanks[who] = nil
   end
 
-  save(moduleId)
-
+  save_latest(moduleId)
   return who
 end
 
 function M.clear_offtanks(moduleId)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local me = me_name()
   local was_offtank = roles.offtanks and roles.offtanks[me] ~= nil
 
   roles.offtanks = {}
-  save(moduleId)
+  save_latest(moduleId)
 end
 
 function M.set_offtank_mobs(moduleId, name, mobs)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
   local entry = ensure_offtank_entry(roles, who)
 
   entry.mobs = normalize_mob_list(mobs)
-  save(moduleId)
+  save_latest(moduleId)
 
   return clone_array(entry.mobs)
 end
 
 function M.clear_offtank_mobs(moduleId, name)
-  local roles = ensure_loaded(moduleId)
+  local roles = load_latest_roles(moduleId)
   local who = name or me_name()
   local entry = ensure_offtank_entry(roles, who)
 
   entry.mobs = {}
-  save(moduleId)
+  save_latest(moduleId)
 
   return entry.mobs
 end

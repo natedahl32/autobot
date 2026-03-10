@@ -111,7 +111,6 @@ function M.new(module_id, boss_name, opts)
       main_assist = nil,
       rampage_tanks = {},
       offtanks = {},
-      offtank_group = 'raid_offtanks',
     },
 
     attack_distance = opts.attack_distance or 18,
@@ -212,7 +211,7 @@ function M.new(module_id, boss_name, opts)
     self.boss_phase_started = (self.opener_mode == 'boss')
 
     if self.is_ma() then
-      CTWN.vorpal_on()
+      CTWN.manual_on()
     elseif self.is_ot() or self.is_mt() or self.is_bmt() or self.is_rt() then
       CTWN.sic_tank_on()
     end

@@ -19,10 +19,11 @@ local boss = RaidBoss.new(M.id, "Ansdaicher", {
   opener_mode = 'offtank_first',
   ma_target_source = 'xtarget',
   ma_priority = {
-    -- Fill these in with the exact add names you want MA to kill.
-    -- Example pattern only:
-    -- 'a muramite xxx',
-    -- 'a muramite yyy',
+    'a Muramite sentinel',
+    'a dragorn defender',
+    'a frantic discordling',
+    'a dragorn antagonist',
+    'a dragorn champion',
   },
   offtank_ordered_pull = true,
   mez_buff_names = MEZ_BUFF_NAMES,
