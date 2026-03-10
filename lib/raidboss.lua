@@ -80,6 +80,15 @@ local function iter_xtarget_spawns()
   end
 end
 
+local function priority_entry_to_list(entry)
+  if type(entry) == 'string' then
+    return { entry }
+  elseif type(entry) == 'table' then
+    return entry
+  end
+  return {}
+end
+
 function M.new(module_id, boss_name, opts)
   opts = opts or {}
 
@@ -89,6 +98,7 @@ function M.new(module_id, boss_name, opts)
 
     running = false,
     fight_started = false,
+    boss_phase_started = false,
     fight_start_time = 0,
 
     mt_tagged = false,
@@ -116,6 +126,11 @@ function M.new(module_id, boss_name, opts)
 
     mez_buff_names = opts.mez_buff_names or {},
     fear_buff_names = opts.fear_buff_names or {},
+
+    opener_mode = opts.opener_mode or 'boss',              -- 'boss' | 'offtank_first'
+    ma_target_source = opts.ma_target_source or 'xtarget', -- 'xtarget' | 'spawns'
+    ma_priority = opts.ma_priority or {},
+    offtank_ordered_pull = opts.offtank_ordered_pull == true,
   }
 
   function self.reload_roles()
@@ -186,25 +201,33 @@ function M.new(module_id, boss_name, opts)
 
   function self.stop()
     self.running = false
+    self.fight_started = false
+    self.boss_phase_started = false
     mq.cmd('/attack off')
   end
 
   function self.start_fight()
     self.fight_started = true
     self.fight_start_time = now()
+    self.boss_phase_started = (self.opener_mode == 'boss')
 
-    -- Check roles and turn on correct CWTN modes
-    if BossRoles.is_ma(self.module_id, me()) then
-        CTWN.vorpal_on()
-    elseif self.is_ot() or self.is_mt() or self.is_bmt() then
-        CTWN.sic_tank_on()
+    if self.is_ma() then
+      CTWN.vorpal_on()
+    elseif self.is_ot() or self.is_mt() or self.is_bmt() or self.is_rt() then
+      CTWN.sic_tank_on()
     end
 
     self.reset_opener()
   end
 
+  function self.start_boss_phase()
+    self.boss_phase_started = true
+    self.reset_opener()
+  end
+
   function self.stop_fight()
     self.fight_started = false
+    self.boss_phase_started = false
     mq.cmd('/attack off')
   end
 
@@ -255,8 +278,25 @@ function M.new(module_id, boss_name, opts)
     end
   end
 
+  function self.offtank_entry()
+    return self.roles.offtanks and self.roles.offtanks[me()] or nil
+  end
+
+  function self.offtank_filter_list()
+    local entry = self.offtank_entry()
+    if entry and entry.mobs and #entry.mobs > 0 then
+      return entry.mobs
+    end
+
+    if self.default_offtank_names and #self.default_offtank_names > 0 then
+      return self.default_offtank_names
+    end
+
+    return nil
+  end
+
   function self.offtank_filter_map()
-    local entry = self.roles.offtanks and self.roles.offtanks[me()]
+    local entry = self.offtank_entry()
     if entry and entry.mobs and #entry.mobs > 0 then
       return list_to_map(entry.mobs)
     end
@@ -308,18 +348,15 @@ function M.new(module_id, boss_name, opts)
     if name == '' then return false end
     if name == norm_name(self.boss_name) then return false end
 
-    -- respect configured/default add-name filters if present
     local filterMap = self.offtank_filter_map()
     if filterMap and not filterMap[name] then
       return false
     end
 
-    -- skip mezzed/fear targets
     if self.is_ccd(spawnObj) then
       return false
     end
 
-    -- skip anything already targeting another offtank
     local tgtName = safe_spawn_target_name(spawnObj)
     if tgtName and tgtName ~= '' then
       local otherOTs = self.other_offtank_names()
@@ -331,7 +368,40 @@ function M.new(module_id, boss_name, opts)
     return true
   end
 
+  function self.find_named_xtarget(query)
+    local q = norm_name(query)
+    local best = nil
+    local bestDist = 999999
+
+    for s in iter_xtarget_spawns() do
+      local name = norm_name(s.Name() or '')
+      if name ~= '' and (name == q or name:find(q, 1, true) ~= nil) then
+        if self.is_valid_offtank_target(s) then
+          local d = s.Distance() or 999999
+          if d < bestDist then
+            best = s
+            bestDist = d
+          end
+        end
+      end
+    end
+
+    return best
+  end
+
   function self.find_offtank_target()
+    if self.offtank_ordered_pull then
+      local filters = self.offtank_filter_list()
+      if filters and #filters > 0 then
+        for _, query in ipairs(filters) do
+          local s = self.find_named_xtarget(query)
+          if s then
+            return s
+          end
+        end
+      end
+    end
+
     local best = nil
     local bestDist = 999999
 
@@ -396,9 +466,103 @@ function M.new(module_id, boss_name, opts)
     end
   end
 
+  function self.ma_matches_priority(spawnObj, entry)
+    if not spawnObj or not spawnObj() then return false end
+    if self.is_ccd(spawnObj) then return false end
+    if norm_name(spawnObj.Name() or '') == norm_name(self.boss_name) then return false end
+
+    local name = norm_name(spawnObj.Name() or '')
+    for _, token in ipairs(priority_entry_to_list(entry)) do
+      local q = norm_name(token)
+      if q ~= '' and (name == q or name:find(q, 1, true) ~= nil) then
+        return true
+      end
+    end
+
+    return false
+  end
+
+  function self.find_ma_target_from_xtarget()
+    for _, entry in ipairs(self.ma_priority or {}) do
+      local best = nil
+      local bestDist = 999999
+
+      for s in iter_xtarget_spawns() do
+        if self.ma_matches_priority(s, entry) then
+          local d = s.Distance() or 999999
+          if d < bestDist then
+            best = s
+            bestDist = d
+          end
+        end
+      end
+
+      if best then
+        return best
+      end
+    end
+
+    return nil
+  end
+
+  function self.find_ma_target_from_spawns()
+    for _, entry in ipairs(self.ma_priority or {}) do
+      for _, token in ipairs(priority_entry_to_list(entry)) do
+        local s = Spawn.spawn_by_name(token)
+        if s and s() and self.ma_matches_priority(s, entry) then
+          return s
+        end
+      end
+    end
+
+    return nil
+  end
+
+  function self.find_ma_target()
+    if not self.is_ma() then return nil end
+    if not self.ma_priority or #self.ma_priority == 0 then return nil end
+
+    if self.ma_target_source == 'spawns' then
+      return self.find_ma_target_from_spawns()
+    end
+
+    return self.find_ma_target_from_xtarget()
+  end
+
+  function self.main_assist_live()
+    local target = self.find_ma_target()
+    if not target or not target() then
+      return
+    end
+
+    local id = target.ID()
+    if not id or id <= 0 then
+      return
+    end
+
+    Spawn.target_id(id)
+    mq.cmd('/pet attack')
+    mq.cmd('/attack on')
+  end
+
   function self.tick()
     if not self.running then return end
     if not self.fight_started then return end
+
+    if self.is_ma() then
+      self.main_assist_live()
+    end
+
+    if self.is_ot() then
+      self.offtank_live()
+    end
+
+    if not self.boss_phase_started then
+      if self.is_mt() or self.is_bmt() or self.is_rt() then
+        mq.cmd('/attack off')
+      end
+      return
+    end
 
     if self.boss_up() then
       local phase = self.phase()
@@ -422,18 +586,12 @@ function M.new(module_id, boss_name, opts)
       end
     end
 
-    -- live phase
     if self.is_mt() or self.is_bmt() or self.is_rt() then
       if self.boss_up() then
         self.live_combat()
       else
         mq.cmd('/attack off')
       end
-      return
-    end
-
-    if self.is_ot() then
-      self.offtank_live()
       return
     end
   end
@@ -471,6 +629,13 @@ function M.new(module_id, boss_name, opts)
         end
       end,
 
+      startbossphase = function(ctx, args)
+        self.start_boss_phase()
+        if sayFn then
+          sayFn('Boss phase started.')
+        end
+      end,
+
       stopfight = function(ctx, args)
         self.stop_fight()
         if sayFn then
@@ -481,7 +646,11 @@ function M.new(module_id, boss_name, opts)
       status = function(ctx, args)
         if sayFn then
           local summary = self.role_summary and self.role_summary() or 'none'
-          sayFn('Role=' .. tostring(summary) .. ' fight_started=' .. tostring(self.fight_started))
+          sayFn(
+            'Role=' .. tostring(summary) ..
+            ' fight_started=' .. tostring(self.fight_started) ..
+            ' boss_phase_started=' .. tostring(self.boss_phase_started)
+          )
         end
       end,
 
@@ -497,8 +666,11 @@ function M.new(module_id, boss_name, opts)
     }
   end
 
-  function self.standard_role_commands(sayFn)
-    return {
+  function self.standard_role_commands(sayFn, opts2)
+    opts2 = opts2 or {}
+    local include_ot = (opts2.include_ot == true)
+
+    local cmds = {
       mtset = function(ctx, args)
         local name = BossRoles.set_mt(self.module_id)
         self.reload_roles()
@@ -560,55 +732,6 @@ function M.new(module_id, boss_name, opts)
         end
       end,
 
-      otadd = function(ctx, args)
-        local name = BossRoles.add_offtank(self.module_id)
-        self.reload_roles()
-        if sayFn then sayFn('Offtank added ' .. tostring(name)) end
-      end,
-
-      otdel = function(ctx, args)
-        local name = BossRoles.remove_offtank(self.module_id)
-        self.reload_roles()
-        if sayFn then sayFn('Offtank removed ' .. tostring(name)) end
-      end,
-
-      otclear = function(ctx, args)
-        BossRoles.clear_offtanks(self.module_id)
-        self.reload_roles()
-        if sayFn then sayFn('All offtanks cleared') end
-      end,
-
-      otstatus = function(ctx, args)
-        local names = BossRoles.get_offtank_names(self.module_id)
-        local mine = BossRoles.get_offtank_mobs(self.module_id, me())
-        if sayFn then
-          sayFn(
-            'OTs=' .. (#names > 0 and table.concat(names, ', ') or 'none') ..
-            ' my_mobs=' .. (#mine > 0 and table.concat(mine, ', ') or 'default/any')
-          )
-        end
-      end,
-
-      otsetmobs = function(ctx, args)
-        local spec = table.concat(args or {}, ' ')
-        if spec == '' then
-          if sayFn then sayFn('Usage: otsetmobs <mob1|mob2|...>') end
-          return
-        end
-
-        local mobs = BossRoles.set_offtank_mobs(self.module_id, nil, spec)
-        self.reload_roles()
-        if sayFn then
-          sayFn('Offtank mob filters set: ' .. (#mobs > 0 and table.concat(mobs, ', ') or 'none'))
-        end
-      end,
-
-      otclearmobs = function(ctx, args)
-        BossRoles.clear_offtank_mobs(self.module_id)
-        self.reload_roles()
-        if sayFn then sayFn('Offtank mob filters cleared') end
-      end,
-
       tankstatus = function(ctx, args)
         local ots = BossRoles.get_offtank_names(self.module_id)
         if sayFn then
@@ -633,15 +756,68 @@ function M.new(module_id, boss_name, opts)
         end
       end,
     }
+
+    if include_ot then
+      cmds.otadd = function(ctx, args)
+        local name = BossRoles.add_offtank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank added ' .. tostring(name)) end
+      end
+
+      cmds.otdel = function(ctx, args)
+        local name = BossRoles.remove_offtank(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank removed ' .. tostring(name)) end
+      end
+
+      cmds.otclear = function(ctx, args)
+        BossRoles.clear_offtanks(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('All offtanks cleared') end
+      end
+
+      cmds.otstatus = function(ctx, args)
+        local names = BossRoles.get_offtank_names(self.module_id)
+        local mine = BossRoles.get_offtank_mobs(self.module_id, me())
+        if sayFn then
+          sayFn(
+            'OTs=' .. (#names > 0 and table.concat(names, ', ') or 'none') ..
+            ' my_mobs=' .. (#mine > 0 and table.concat(mine, ', ') or 'default/any')
+          )
+        end
+      end
+
+      cmds.otsetmobs = function(ctx, args)
+        local spec = table.concat(args or {}, ' ')
+        if spec == '' then
+          if sayFn then sayFn('Usage: otsetmobs <mob1|mob2|...>') end
+          return
+        end
+
+        local mobs = BossRoles.set_offtank_mobs(self.module_id, nil, spec)
+        self.reload_roles()
+        if sayFn then
+          sayFn('Offtank mob filters set: ' .. (#mobs > 0 and table.concat(mobs, ', ') or 'none'))
+        end
+      end
+
+      cmds.otclearmobs = function(ctx, args)
+        BossRoles.clear_offtank_mobs(self.module_id)
+        self.reload_roles()
+        if sayFn then sayFn('Offtank mob filters cleared') end
+      end
+    end
+
+    return cmds
   end
 
-  function self.standard_help(opts)
-    opts = opts or {}
+  function self.standard_help(opts2)
+    opts2 = opts2 or {}
 
     local lines = {}
 
-    if opts.title and opts.title ~= '' then
-      table.insert(lines, opts.title)
+    if opts2.title and opts2.title ~= '' then
+      table.insert(lines, opts2.title)
       table.insert(lines, '')
     end
 
@@ -649,8 +825,10 @@ function M.new(module_id, boss_name, opts)
     table.insert(lines, ('  /autobot %s start'):format(self.module_id))
     table.insert(lines, ('  /autobot %s stop'):format(self.module_id))
     table.insert(lines, ('  /autobot %s startfight'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s startbossphase'):format(self.module_id))
     table.insert(lines, ('  /autobot %s stopfight'):format(self.module_id))
     table.insert(lines, ('  /autobot %s status'):format(self.module_id))
+    table.insert(lines, ('  /autobot %s reloadroles'):format(self.module_id))
 
     table.insert(lines, ('  /autobot %s mtset'):format(self.module_id))
     table.insert(lines, ('  /autobot %s bmtset'):format(self.module_id))
@@ -664,7 +842,7 @@ function M.new(module_id, boss_name, opts)
     table.insert(lines, ('  /autobot %s rtclear'):format(self.module_id))
     table.insert(lines, ('  /autobot %s rtstatus'):format(self.module_id))
 
-    if opts.include_ot then
+    if opts2.include_ot then
       table.insert(lines, ('  /autobot %s otadd'):format(self.module_id))
       table.insert(lines, ('  /autobot %s otdel'):format(self.module_id))
       table.insert(lines, ('  /autobot %s otclear'):format(self.module_id))
@@ -675,11 +853,10 @@ function M.new(module_id, boss_name, opts)
 
     table.insert(lines, ('  /autobot %s tankstatus'):format(self.module_id))
     table.insert(lines, ('  /autobot %s mastatus'):format(self.module_id))
-    table.insert(lines, ('  /autobot %s reloadroles'):format(self.module_id))
 
-    if opts.extra and #opts.extra > 0 then
+    if opts2.extra and #opts2.extra > 0 then
       table.insert(lines, '')
-      for _, line in ipairs(opts.extra) do
+      for _, line in ipairs(opts2.extra) do
         table.insert(lines, line)
       end
     end

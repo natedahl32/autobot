@@ -18,8 +18,15 @@ local FEAR_BUFF_NAMES = {
 }
 
 local boss = RaidBoss.new(M.id, "Queen Pyrilonis", {
-  attack_distance = 18,
-  nav_timeout_ms = 30000,
+  opener_mode = 'offtank_first',
+  ma_target_source = 'spawns',
+  ma_priority = {
+    'a fire construct',
+    'a raging chimera',
+    { 'princess', 'Princess' },
+  },
+  offtank_ordered_pull = true,
+  include_ot = true,
   mez_buff_names = MEZ_BUFF_NAMES,
   fear_buff_names = FEAR_BUFF_NAMES,
 })
