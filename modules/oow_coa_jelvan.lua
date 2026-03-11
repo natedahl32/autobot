@@ -1,7 +1,9 @@
 local mq = require('mq')
 
-local RaidBoss = require('AutoBot.lib.raidboss')
+local BossRoles = require('AutoBot.lib.bossroles')
 local CWTN = require('AutoBot.lib.cwtn')
+local RaidBoss = require('AutoBot.lib.raidboss')
+local Spawn = require('AutoBot.lib.spawn')
 
 local M = {}
 
@@ -37,7 +39,8 @@ M.help = boss.standard_help({
   include_ot = true,
   extra = {
     'Notes:',
-    '  Assign 3 Offtanks to Tanthi, Tantho, and Tanthu the Tormentor.',
+    '  Put 1 group in each of the spawn locations for the bosses (NE, NW, S)',
+    '  Tanks in group put on Tank mode (CWTN Mode 4) and group members put in mode 2',
     '  DPS pauses automatically at each new 5% HP bucket on the tormentor they are attacking.',
     '  Healers (CLR/DRU/SHM) are excluded from DPS pause/resume behavior.',
     '  Use /autobot oow_coa_jelvan attackresume to resume DPS manually.',
@@ -166,6 +169,47 @@ local function maybe_pause_for_bucket()
   end
 end
 
+local function find_assigned_tormentor()
+  local mobs = BossRoles.get_offtank_mobs(M.id, mq.TLO.Me.Name() or '')
+  if not mobs or #mobs == 0 then
+    return nil
+  end
+
+  for _, mobName in ipairs(mobs) do
+    local s = Spawn.spawn_by_name(mobName)
+    if s and s() then
+      return s
+    end
+  end
+
+  return nil
+end
+
+local function proactive_offtank_tick()
+  if not boss.running then return end
+  if not boss.is_ot() then return end
+
+  local s = find_assigned_tormentor()
+  if not s or not s() then
+    return
+  end
+
+  local id = s.ID()
+  if not id or id <= 0 then
+    return
+  end
+
+  local currentTarget = mq.TLO.Target
+  local currentId = currentTarget and currentTarget() and currentTarget.ID() or nil
+
+  if currentId ~= id then
+    Spawn.target_id(id)
+  end
+
+  mq.cmd('/pet attack')
+  mq.cmd('/attack on')
+end
+
 function M.start(ctx)
   boss.start()
   last_pause_bucket = nil
@@ -189,7 +233,14 @@ function M.stop(ctx)
 end
 
 function M.tick(ctx)
+  -- Proactive OT pickup for Jelvan: do this whenever the module is running,
+  -- even before startfight.
+  proactive_offtank_tick()
+
+  -- Normal shared boss logic
   boss.tick()
+
+  -- 5% pause logic
   maybe_pause_for_bucket()
 end
 
